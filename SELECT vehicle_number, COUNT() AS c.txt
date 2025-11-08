@@ -1,0 +1,39 @@
+SELECT vehicle_number, COUNT(*) AS count FROM traffic_stops WHERE drugs_related_stop = 1 GROUP BY vehicle_number ORDER BY count DESC LIMIT 10;
+
+SELECT vehicle_number, COUNT(*) AS count FROM traffic_stops WHERE search_conducted = 1 GROUP BY vehicle_number ORDER BY count ASC LIMIT 10;
+
+WITH age_groups AS (SELECT CASE WHEN driver_age < 20 THEN 'Under 20' WHEN driver_age BETWEEN 20 AND 29 THEN '20-29' WHEN driver_age BETWEEN 30 AND 39 THEN '30-39' WHEN driver_age BETWEEN 40 AND 49 THEN '40-49' WHEN driver_age BETWEEN 50 AND 59 THEN '50-59' WHEN driver_age BETWEEN 60 AND 69 THEN '60-69' WHEN driver_age >= 70 THEN '70+' ELSE 'Unknown' END AS age_group, is_arrested FROM traffic_stops) SELECT age_group, ROUND(100.0 * SUM(CASE WHEN is_arrested = 'TRUE' THEN 1 ELSE 0 END) / COUNT(*), 2) AS arrest_rate FROM age_groups GROUP BY age_group ORDER BY arrest_rate DESC LIMIT 1;
+
+SELECT country_name, driver_gender, COUNT(*) AS count FROM traffic_stops GROUP BY country_name, driver_gender ORDER BY country_name, count DESC;
+
+SELECT driver_race, driver_gender, ROUND(100.0 * SUM(CASE WHEN search_conducted = 'TRUE' THEN 1 ELSE 0 END) / COUNT(*), 2) AS search_rate FROM traffic_stops GROUP BY driver_race, driver_gender ORDER BY search_rate DESC LIMIT 1;
+
+SELECT HOUR(stop_time) AS hour, COUNT(*) AS count FROM traffic_stops GROUP BY hour ORDER BY count DESC LIMIT 1;
+
+WITH duration_map AS (SELECT violation, CASE WHEN stop_duration = '0-15 Min' THEN 7.5 WHEN stop_duration = '16-30 Min' THEN 23 WHEN stop_duration = '30+ Min' THEN 45 ELSE 0 END AS duration_min FROM traffic_stops) SELECT violation, AVG(duration_min) AS avg_duration FROM duration_map GROUP BY violation ORDER BY avg_duration DESC;
+
+WITH time_period AS (SELECT CASE WHEN HOUR(stop_time) BETWEEN 20 AND 23 OR HOUR(stop_time) BETWEEN 0 AND 5 THEN 'Night' ELSE 'Day' END AS period, is_arrested FROM traffic_stops) SELECT period, ROUND(100.0 * SUM(CASE WHEN is_arrested = 'TRUE' THEN 1 ELSE 0 END) / COUNT(*), 2) AS arrest_rate FROM time_period GROUP BY period;
+
+SELECT violation, ROUND(100.0 * SUM(CASE WHEN search_conducted = 'TRUE' OR is_arrested = 'TRUE' THEN 1 ELSE 0 END) / COUNT(*), 2) AS association_rate FROM traffic_stops GROUP BY violation ORDER BY association_rate DESC;
+
+SELECT violation, COUNT(*) AS count FROM traffic_stops WHERE driver_age < 25 GROUP BY violation ORDER BY count DESC;
+
+SELECT violation, ROUND(100.0 * SUM(CASE WHEN search_conducted = 'TRUE' OR is_arrested = 'TRUE' THEN 1 ELSE 0 END) / COUNT(*), 2) AS rate FROM traffic_stops GROUP BY violation ORDER BY rate ASC LIMIT 1;
+
+SELECT country_name, ROUND(100.0 * SUM(CASE WHEN drugs_related_stop = 'TRUE' THEN 1 ELSE 0 END) / COUNT(*), 2) AS drug_rate FROM traffic_stops GROUP BY country_name ORDER BY drug_rate DESC;
+
+SELECT country_name, violation, ROUND(100.0 * SUM(CASE WHEN is_arrested = 'TRUE' THEN 1 ELSE 0 END) / COUNT(*), 2) AS arrest_rate FROM traffic_stops GROUP BY country_name, violation ORDER BY country_name, arrest_rate DESC;
+
+SELECT country_name, SUM(CASE WHEN search_conducted = 'TRUE' THEN 1 ELSE 0 END) AS search_count FROM traffic_stops GROUP BY country_name ORDER BY search_count DESC LIMIT 1;
+
+SELECT country_name, year, total_stops, total_arrests, arrest_rate, RANK() OVER (PARTITION BY year ORDER BY total_stops DESC) AS rank_by_stops FROM (SELECT country_name, EXTRACT(YEAR FROM stop_date) AS year, COUNT(*) AS total_stops, SUM(CASE WHEN is_arrested = TRUE THEN 1 ELSE 0 END) AS total_arrests, ROUND(SUM(CASE WHEN is_arrested = TRUE THEN 1 ELSE 0 END)*100.0 / COUNT(*), 2) AS arrest_rate FROM traffic_stops GROUP BY country_name, year) AS yearly_data ORDER BY year, total_stops DESC;
+
+SELECT d.driver_race, d.driver_age_group, v.violation, v.total_cases FROM (SELECT driver_race, CASE WHEN driver_age < 25 THEN '<25' WHEN driver_age BETWEEN 25 AND 40 THEN '25-40' WHEN driver_age BETWEEN 41 AND 60 THEN '41-60' ELSE '>60' END AS driver_age_group, violation, COUNT(*) AS total_cases FROM traffic_stops GROUP BY driver_race, driver_age_group, violation) v JOIN (SELECT DISTINCT driver_race, CASE WHEN driver_age < 25 THEN '<25' WHEN driver_age BETWEEN 25 AND 40 THEN '25-40' WHEN driver_age BETWEEN 41 AND 60 THEN '41-60' ELSE '>60' END AS driver_age_group FROM traffic_stops) d ON v.driver_race = d.driver_race AND v.driver_age_group = d.driver_age_group ORDER BY v.total_cases DESC;
+
+SELECT EXTRACT(YEAR FROM stop_date) AS year, EXTRACT(MONTH FROM stop_date) AS month, HOUR(stop_time) AS hour, COUNT(*) AS count FROM traffic_stops GROUP BY year, month, hour ORDER BY year, month, hour;
+
+SELECT violation, ROUND(SUM(CASE WHEN search_conducted = 1 THEN 1 ELSE 0 END)*100.0 / COUNT(*), 2) AS search_rate, ROUND(SUM(CASE WHEN is_arrested = 1 THEN 1 ELSE 0 END)*100.0 / COUNT(*), 2) AS arrest_rate, RANK() OVER (ORDER BY SUM(CASE WHEN is_arrested = 1 THEN 1 ELSE 0 END) DESC) AS rank_by_arrests FROM traffic_stops GROUP BY violation HAVING search_rate > 10 OR arrest_rate > 10 ORDER BY rank_by_arrests;
+
+SELECT country_name, driver_gender, driver_race, ROUND(AVG(driver_age), 1) AS avg_age, COUNT(*) AS total_stops FROM traffic_stops GROUP BY country_name, driver_gender, driver_race ORDER BY country_name, total_stops DESC;
+
+SELECT violation, ROUND(SUM(CASE WHEN is_arrested = 1 THEN 1 ELSE 0 END)*100.0 / COUNT(*), 2) AS arrest_rate FROM traffic_stops GROUP BY violation ORDER BY arrest_rate DESC LIMIT 5;
